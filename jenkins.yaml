@@ -1,0 +1,65 @@
+node  {
+  stage('variables')
+    {
+
+sh '''echo "BUILD_NUMBER" :: $BUILD_NUMBER
+echo "BUILD_ID" :: $BUILD_ID
+echo "BUILD_DISPLAY_NAME" :: $BUILD_DISPLAY_NAME
+echo "JOB_NAME" :: $JOB_NAME
+echo "JOB_BASE_NAME" :: $JOB_BASE_NAME
+echo "BUILD_TAG" :: $BUILD_TAG
+echo "EXECUTOR_NUMBER" :: $EXECUTOR_NUMBER
+echo "NODE_NAME" :: $NODE_NAME
+echo "NODE_LABELS" :: $NODE_LABELS
+echo "WORKSPACE" :: $WORKSPACE
+echo "JENKINS_HOME" :: $JENKINS_HOME
+echo "JENKINS_URL" :: $JENKINS_URL
+echo "BUILD_URL" ::$BUILD_URL
+echo "JOB_URL" :: $JOB_URL'''
+}
+node  {
+
+stage('checkout')
+git credentialsId: 'bitbucket', url: 'https://anilnewyork16@bitbucket.org/anilnewyork16/todorestaug23.git'
+
+stage('compile the code')
+sh 'mvn compile'
+
+//stage ('run unit test')
+//sh 'mvn test'
+
+//stage ('generate surefire report')
+//sh 'mvn surefire-report:report'
+
+stage ('create application jar ')
+sh 'mvn package'
+
+
+stage ('build docker image')   
+sh 'sudo docker build -t anilbidari/todo:$BUILD_NUMBER .'
+
+//stage ('deploy contianer')   
+//sh 'sudo docker run -itd -p 8080 anilbidari/todo:$BUILD_NUMBER /bin/bash'
+
+stage ('list contianer')
+sh 'sudo docker ps -l' 
+
+stage ('docker hub login')
+sh 'sudo docker login -u anilbidari -p Pasword'
+
+stage ('docker push')
+sh 'sudo docker push anilbidari/todo:$BUILD_NUMBER'
+
+ stage('deploy todoapp containers')
+ sh 'sudo kubectl create deployment anil-$BUILD_NUMBER --image=anilbidari/todo:$BUILD_NUMBER --port=8080'
+  
+  stage('deploy app behind load balancer')
+  sh 'sudo  kubectl expose deployment anil-$BUILD_NUMBER --type="LoadBalancer"'
+  
+  stage ('pause for 45 secs')
+  sleep 45
+  
+  stage (' show external ip')
+  sh 'sudo kubectl get svc'
+}
+}
